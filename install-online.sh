@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+VERSION="20260321-2009"
 REPO_RAW_BASE="https://raw.githubusercontent.com/Cd1s/emby-autoplay/main"
 INSTALL_DIR="/opt/emby-autoplay"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
+
+echo "emby-autoplay online installer version: $VERSION"
 
 need_cmd() {
   command -v "$1" >/dev/null 2>&1 || { echo "Missing required command: $1" >&2; exit 1; }
@@ -14,9 +17,9 @@ fetch() {
   local url="$1"
   local out="$2"
   if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$url" -o "$out"
+    curl -H 'Cache-Control: no-cache' -fsSL "${url}?v=${VERSION}" -o "$out"
   elif command -v wget >/dev/null 2>&1; then
-    wget -qO "$out" "$url"
+    wget --header='Cache-Control: no-cache' -qO "$out" "${url}?v=${VERSION}"
   else
     echo "Need curl or wget" >&2
     exit 1
