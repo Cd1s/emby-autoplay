@@ -17,24 +17,60 @@ def input_default(prompt, default=''):
     return val if val else default
 
 
+def choose_scheme(default='http'):
+    default = default if default in ('http', 'https') else 'http'
+    while True:
+        print('\n选择协议：')
+        print('  1) http')
+        print('  2) https')
+        raw = input(f'请输入 1 或 2，直接回车默认 [{default}]: ').strip().lower()
+        if not raw:
+            return default
+        if raw == '1':
+            return 'http'
+        if raw == '2':
+            return 'https'
+        if raw in ('http', 'https'):
+            return raw
+        print('输入无效，请重新选择。')
+
+
+def input_bool(prompt, default='true'):
+    while True:
+        raw = input(f'{prompt} [默认 {default}] (true/false): ').strip().lower()
+        if not raw:
+            return default
+        if raw in ('true', 'false'):
+            return raw
+        print('请输入 true 或 false。')
+
+
 def main():
     cfg = parse_env()
-    print('=== Emby Autoplay Interactive Setup ===')
-    cfg['EMBY_SCHEME'] = input_default('Protocol (http/https)', cfg.get('EMBY_SCHEME', 'http'))
-    cfg['EMBY_HOST'] = input_default('Host / domain', cfg.get('EMBY_HOST', ''))
-    cfg['EMBY_PORT'] = input_default('Port', cfg.get('EMBY_PORT', '8096'))
-    cfg['EMBY_USERNAME'] = input_default('Username', cfg.get('EMBY_USERNAME', ''))
-    pwd = getpass('Password [hidden]: ').strip()
+    print('=== Emby Autoplay 交互安装 ===')
+    print('下面会逐项询问，按回车可使用默认值。\n')
+
+    cfg['EMBY_SCHEME'] = choose_scheme(cfg.get('EMBY_SCHEME', 'http'))
+    cfg['EMBY_HOST'] = input_default('请输入 Emby 域名或 IP', cfg.get('EMBY_HOST', ''))
+    cfg['EMBY_PORT'] = input_default('请输入端口', cfg.get('EMBY_PORT', '8096'))
+    cfg['EMBY_USERNAME'] = input_default('请输入用户名', cfg.get('EMBY_USERNAME', ''))
+    pwd = getpass('请输入密码（隐藏输入，直接回车保留现有值）: ').strip()
     if pwd:
         cfg['EMBY_PASSWORD'] = pwd
-    cfg['EMBY_MIN_DAYS'] = input_default('Min days between runs', cfg.get('EMBY_MIN_DAYS', '22'))
-    cfg['EMBY_MAX_DAYS'] = input_default('Max days between runs', cfg.get('EMBY_MAX_DAYS', '28'))
-    cfg['EMBY_MIN_PLAY_SECONDS'] = input_default('Min play seconds (>300)', cfg.get('EMBY_MIN_PLAY_SECONDS', '301'))
-    cfg['EMBY_SOFT_MAX_PLAY_SECONDS'] = input_default('Preferred soft max play seconds', cfg.get('EMBY_SOFT_MAX_PLAY_SECONDS', '600'))
-    cfg['EMBY_HARD_MAX_PLAY_SECONDS'] = input_default('Hard max play seconds (<1200)', cfg.get('EMBY_HARD_MAX_PLAY_SECONDS', '1199'))
-    cfg['EMBY_PREFER_SOFT_MAX_PROB'] = input_default('Probability of staying within soft max (0-1)', cfg.get('EMBY_PREFER_SOFT_MAX_PROB', '0.85'))
-    cfg['EMBY_VERIFY_SSL'] = input_default('Verify SSL (true/false)', cfg.get('EMBY_VERIFY_SSL', 'true'))
-    cfg['EMBY_TIMEOUT'] = input_default('HTTP timeout seconds', cfg.get('EMBY_TIMEOUT', '30'))
+
+    print('\n=== 随机周期设置 ===')
+    cfg['EMBY_MIN_DAYS'] = input_default('最小多少天后运行', cfg.get('EMBY_MIN_DAYS', '22'))
+    cfg['EMBY_MAX_DAYS'] = input_default('最大多少天后运行', cfg.get('EMBY_MAX_DAYS', '28'))
+
+    print('\n=== 随机播放时长设置（单位：秒） ===')
+    cfg['EMBY_MIN_PLAY_SECONDS'] = input_default('最短播放秒数（>300）', cfg.get('EMBY_MIN_PLAY_SECONDS', '301'))
+    cfg['EMBY_SOFT_MAX_PLAY_SECONDS'] = input_default('偏好最长秒数（尽量不超过）', cfg.get('EMBY_SOFT_MAX_PLAY_SECONDS', '600'))
+    cfg['EMBY_HARD_MAX_PLAY_SECONDS'] = input_default('硬上限最长秒数（必须小于 1200）', cfg.get('EMBY_HARD_MAX_PLAY_SECONDS', '1199'))
+    cfg['EMBY_PREFER_SOFT_MAX_PROB'] = input_default('落在偏好时长内的概率（0~1）', cfg.get('EMBY_PREFER_SOFT_MAX_PROB', '0.85'))
+
+    print('\n=== 网络设置 ===')
+    cfg['EMBY_VERIFY_SSL'] = input_bool('是否校验 SSL 证书', cfg.get('EMBY_VERIFY_SSL', 'true'))
+    cfg['EMBY_TIMEOUT'] = input_default('HTTP 超时秒数', cfg.get('EMBY_TIMEOUT', '30'))
 
     save_env(cfg)
 
@@ -52,9 +88,9 @@ def main():
             'updated_at': now,
         }, ensure_ascii=False, indent=2), encoding='utf-8')
 
-    print('\nConfig saved. Scheduling next run...')
+    print('\n配置已保存，正在预约下一次运行...')
     subprocess.run(['python3', str(SCHEDULER)], check=False)
-    print('Done.')
+    print('完成。你现在可以运行：embyautoplay')
 
 
 if __name__ == '__main__':
