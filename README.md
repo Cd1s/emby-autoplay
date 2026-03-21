@@ -44,27 +44,35 @@ apt-get install -y python3 python3-pip systemd
 python3 -m pip install requests
 ```
 
-## 一键安装
+## 一键安装（无需克隆仓库）
 
-### 1. 克隆仓库
+### curl
 
 ```bash
-git clone https://github.com/Cd1s/emby-autoplay.git
-cd emby-autoplay
+curl -fsSL https://raw.githubusercontent.com/Cd1s/emby-autoplay/main/install-online.sh | bash
 ```
 
-### 2. 安装
+### wget
+
+```bash
+wget -qO- https://raw.githubusercontent.com/Cd1s/emby-autoplay/main/install-online.sh | bash
+```
+
+安装脚本会：
+- 下载项目文件到临时目录
+- 复制文件到 `/opt/emby-autoplay`
+- 生成配置文件 `/opt/emby-autoplay/emby_keepalive.env`
+- 安装 systemd 动态预约脚本
+- 立即注册下一次随机播放任务
+
+## 本地安装（可选）
+
+如果你已经把仓库下到本地，也可以：
 
 ```bash
 chmod +x install.sh
 ./install.sh
 ```
-
-安装脚本会：
-- 复制文件到 `/opt/emby-autoplay`
-- 生成配置文件 `/opt/emby-autoplay/emby_keepalive.env`
-- 安装 systemd 动态预约脚本
-- 立即注册下一次随机播放任务
 
 ## 配置
 
