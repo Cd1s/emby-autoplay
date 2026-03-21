@@ -40,15 +40,19 @@ fetch "$REPO_RAW_BASE/src/emby_keepalive.env.example" "$TMP_DIR/src/emby_keepali
 chmod +x "$TMP_DIR/install.sh"
 
 cd "$TMP_DIR"
-if [[ -t 0 ]]; then
-  ./install.sh
-elif [[ -r /dev/tty ]]; then
-  ./install.sh < /dev/tty
+EMBY_AUTOPLAY_SKIP_INTERACTIVE=1 ./install.sh
+
+echo
+echo "Base install complete."
+echo "Starting interactive setup..."
+if [[ -r /dev/tty ]]; then
+  EMBY_AUTOPLAY_HOME="$INSTALL_DIR" /usr/bin/python3 "$INSTALL_DIR/interactive_install.py" < /dev/tty
 else
-  echo "No interactive TTY available. Please run in a real terminal." >&2
+  echo "No interactive TTY available." >&2
+  echo "Please run manually: EMBY_AUTOPLAY_HOME=$INSTALL_DIR python3 $INSTALL_DIR/interactive_install.py" >&2
   exit 1
 fi
 
 echo
 echo "One-line install complete."
-echo "Edit config: $INSTALL_DIR/emby_keepalive.env"
+echo "Manage with: embyautoplay"

@@ -54,7 +54,9 @@ echo "Play log:    $INSTALL_DIR/logs/emby_keepalive.log"
 echo "Sched log:   $INSTALL_DIR/logs/emby_keepalive_scheduler.log"
 echo "Command:     embyautoplay"
 echo
-if [[ -t 0 ]]; then
+if [[ "${EMBY_AUTOPLAY_SKIP_INTERACTIVE:-0}" == "1" ]]; then
+  echo "Interactive setup skipped by EMBY_AUTOPLAY_SKIP_INTERACTIVE=1"
+elif [[ -t 0 ]]; then
   EMBY_AUTOPLAY_HOME="$INSTALL_DIR" /usr/bin/python3 "$INSTALL_DIR/interactive_install.py"
 elif [[ -r /dev/tty ]]; then
   EMBY_AUTOPLAY_HOME="$INSTALL_DIR" /usr/bin/python3 "$INSTALL_DIR/interactive_install.py" < /dev/tty
