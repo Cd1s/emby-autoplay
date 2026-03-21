@@ -12,16 +12,18 @@ fi
 
 mkdir -p "$INSTALL_DIR/logs"
 cp "$SRC_DIR/emby_keepalive.py" "$INSTALL_DIR/"
+cp "$SRC_DIR/emby_keepalive_config.py" "$INSTALL_DIR/"
 cp "$SRC_DIR/emby_keepalive_systemd_scheduler.py" "$INSTALL_DIR/"
 cp "$SRC_DIR/emby_keepalive_systemd_runner.sh" "$INSTALL_DIR/"
 cp "$SRC_DIR/run_emby_keepalive.sh" "$INSTALL_DIR/"
-chmod +x "$INSTALL_DIR/emby_keepalive.py" "$INSTALL_DIR/emby_keepalive_systemd_scheduler.py" "$INSTALL_DIR/emby_keepalive_systemd_runner.sh" "$INSTALL_DIR/run_emby_keepalive.sh"
+cp "$SRC_DIR/interactive_install.py" "$INSTALL_DIR/"
+cp "$SRC_DIR/embyautoplay" "$INSTALL_DIR/"
+chmod +x "$INSTALL_DIR/emby_keepalive.py" "$INSTALL_DIR/emby_keepalive_systemd_scheduler.py" "$INSTALL_DIR/emby_keepalive_systemd_runner.sh" "$INSTALL_DIR/run_emby_keepalive.sh" "$INSTALL_DIR/interactive_install.py" "$INSTALL_DIR/embyautoplay"
+ln -sf "$INSTALL_DIR/embyautoplay" /usr/local/bin/embyautoplay
 
 if [[ ! -f "$INSTALL_DIR/emby_keepalive.env" ]]; then
   cp "$SRC_DIR/emby_keepalive.env.example" "$INSTALL_DIR/emby_keepalive.env"
   chmod 600 "$INSTALL_DIR/emby_keepalive.env"
-  echo "Created config: $INSTALL_DIR/emby_keepalive.env"
-  echo "Please edit it before real use."
 fi
 
 python3 - <<'PY'
@@ -45,13 +47,11 @@ if not os.path.exists(path):
         json.dump(state,f,ensure_ascii=False,indent=2)
 PY
 
-EMBY_AUTOPLAY_HOME="$INSTALL_DIR" /usr/bin/python3 "$INSTALL_DIR/emby_keepalive_systemd_scheduler.py"
-
 echo
 echo "Installed to: $INSTALL_DIR"
 echo "Config file: $INSTALL_DIR/emby_keepalive.env"
 echo "Play log:    $INSTALL_DIR/logs/emby_keepalive.log"
 echo "Sched log:   $INSTALL_DIR/logs/emby_keepalive_scheduler.log"
+echo "Command:     embyautoplay"
 echo
-echo "Next schedule:"
-cat "$INSTALL_DIR/emby_keepalive_state.json"
+EMBY_AUTOPLAY_HOME="$INSTALL_DIR" /usr/bin/python3 "$INSTALL_DIR/interactive_install.py"

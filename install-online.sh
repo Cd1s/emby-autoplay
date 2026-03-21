@@ -30,9 +30,12 @@ need_cmd systemd-run
 mkdir -p "$TMP_DIR/src"
 fetch "$REPO_RAW_BASE/install.sh" "$TMP_DIR/install.sh"
 fetch "$REPO_RAW_BASE/src/emby_keepalive.py" "$TMP_DIR/src/emby_keepalive.py"
+fetch "$REPO_RAW_BASE/src/emby_keepalive_config.py" "$TMP_DIR/src/emby_keepalive_config.py"
 fetch "$REPO_RAW_BASE/src/emby_keepalive_systemd_scheduler.py" "$TMP_DIR/src/emby_keepalive_systemd_scheduler.py"
 fetch "$REPO_RAW_BASE/src/emby_keepalive_systemd_runner.sh" "$TMP_DIR/src/emby_keepalive_systemd_runner.sh"
 fetch "$REPO_RAW_BASE/src/run_emby_keepalive.sh" "$TMP_DIR/src/run_emby_keepalive.sh"
+fetch "$REPO_RAW_BASE/src/interactive_install.py" "$TMP_DIR/src/interactive_install.py"
+fetch "$REPO_RAW_BASE/src/embyautoplay" "$TMP_DIR/src/embyautoplay"
 fetch "$REPO_RAW_BASE/src/emby_keepalive.env.example" "$TMP_DIR/src/emby_keepalive.env.example"
 chmod +x "$TMP_DIR/install.sh"
 

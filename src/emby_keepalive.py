@@ -4,17 +4,19 @@ import sys
 import time
 import random
 import requests
+from emby_keepalive_config import parse_env
 
 BASE_DIR = os.environ.get('EMBY_AUTOPLAY_HOME', '/opt/emby-autoplay')
-BASE_URL = os.environ.get('EMBY_URL', '').rstrip('/')
-USERNAME = os.environ.get('EMBY_USERNAME', '')
-PASSWORD = os.environ.get('EMBY_PASSWORD', '')
+CFG = parse_env()
+BASE_URL = os.environ.get('EMBY_URL', CFG.get('EMBY_URL', '')).rstrip('/')
+USERNAME = os.environ.get('EMBY_USERNAME', CFG.get('EMBY_USERNAME', ''))
+PASSWORD = os.environ.get('EMBY_PASSWORD', CFG.get('EMBY_PASSWORD', ''))
 PLAY_SECONDS = int(os.environ.get('EMBY_PLAY_SECONDS', '120'))
-DEVICE_ID = os.environ.get('EMBY_DEVICE_ID', 'emby-autoplay')
-CLIENT_NAME = os.environ.get('EMBY_CLIENT_NAME', 'EmbyAutoplay')
-CLIENT_VERSION = os.environ.get('EMBY_CLIENT_VERSION', '1.0.0')
-VERIFY_SSL = os.environ.get('EMBY_VERIFY_SSL', 'true').lower() not in ('0', 'false', 'no')
-REQUEST_TIMEOUT = int(os.environ.get('EMBY_TIMEOUT', '30'))
+DEVICE_ID = os.environ.get('EMBY_DEVICE_ID', CFG.get('EMBY_DEVICE_ID', 'emby-autoplay'))
+CLIENT_NAME = os.environ.get('EMBY_CLIENT_NAME', CFG.get('EMBY_CLIENT_NAME', 'EmbyAutoplay'))
+CLIENT_VERSION = os.environ.get('EMBY_CLIENT_VERSION', CFG.get('EMBY_CLIENT_VERSION', '1.0.0'))
+VERIFY_SSL = os.environ.get('EMBY_VERIFY_SSL', CFG.get('EMBY_VERIFY_SSL', 'true')).lower() not in ('0', 'false', 'no')
+REQUEST_TIMEOUT = int(os.environ.get('EMBY_TIMEOUT', CFG.get('EMBY_TIMEOUT', '30')))
 
 if not BASE_URL or not USERNAME or not PASSWORD:
     print('Missing EMBY_URL / EMBY_USERNAME / EMBY_PASSWORD', file=sys.stderr)

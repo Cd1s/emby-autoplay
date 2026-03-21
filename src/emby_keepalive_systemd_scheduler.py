@@ -5,19 +5,21 @@ import random
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
+from emby_keepalive_config import parse_env
 
 BASE_DIR = os.environ.get('EMBY_AUTOPLAY_HOME', '/opt/emby-autoplay')
 STATE_PATH = os.path.join(BASE_DIR, 'emby_keepalive_state.json')
 RUNNER = os.path.join(BASE_DIR, 'emby_keepalive_systemd_runner.sh')
 LOG_FILE = os.path.join(BASE_DIR, 'logs', 'emby_keepalive_scheduler.log')
 UNIT_PREFIX = 'emby-keepalive'
+CFG = parse_env()
 
-MIN_DAYS = 22
-MAX_DAYS = 28
-MIN_SECONDS = 301
-SOFT_MAX_SECONDS = 600
-HARD_MAX_SECONDS = 1199
-PREFER_SOFT_MAX_PROB = 0.85
+MIN_DAYS = int(CFG.get('EMBY_MIN_DAYS', '22'))
+MAX_DAYS = int(CFG.get('EMBY_MAX_DAYS', '28'))
+MIN_SECONDS = int(CFG.get('EMBY_MIN_PLAY_SECONDS', '301'))
+SOFT_MAX_SECONDS = int(CFG.get('EMBY_SOFT_MAX_PLAY_SECONDS', '600'))
+HARD_MAX_SECONDS = int(CFG.get('EMBY_HARD_MAX_PLAY_SECONDS', '1199'))
+PREFER_SOFT_MAX_PROB = float(CFG.get('EMBY_PREFER_SOFT_MAX_PROB', '0.85'))
 
 
 def now_utc():

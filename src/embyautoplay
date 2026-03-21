@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+from getpass import getpass
+
+from emby_keepalive_config import parse_env, save_env, build_url
+
+BASE_DIR = Path(os.environ.get('EMBY_AUTOPLAY_HOME', '/opt/emby-autoplay'))
+STATE_PATH = BASE_DIR / 'emby_keepalive_state.json'
+PLAY_LOG = BASE_DIR / 'logs' / 'emby_keepalive.log'
+SCHED_LOG = BASE_DIR / 'logs' / 'emby_keepalive_scheduler.log'
+RUNNER = BASE_DIR / 'emby_keepalive_systemd_runner.sh'
+SCHEDULER = BASE_DIR / 'emby_keepalive_systemd_scheduler.py'
+UNINSTALL = BASE_DIR / 'uninstall.sh'
+
+
+def run(cmd):
+    return subprocess.run(cmd, text=True)
+
+
+def read_state():
+    if not STATE_PATH.exists():
+        return {}
+    return json.loads(STATE_PATH.read_text(encoding='utf-8'))
+
+
+def show_status():
+    cfg = parse_env()
+    state = read_state()
+    print('\n=== Emby Autoplay Status ===')
+    print(f'URL:              {cfg.get("EMBY_URL") or build_url(cfg)}')
+    print(f'Username:         {cfg.get("EMBY_USERNAME")}')
+    print(f'Day range:        {cfg.get("EMBY_MIN_DAYS")} ~ {cfg.get("EMBY_MAX_DAYS")} days')
+    print(f'Play seconds:     {cfg.get("EMBY_MIN_PLAY_SECONDS")} ~ {cfg.get("EMBY_HARD_MAX_PLAY_SECONDS")} sec (soft max {cfg.get("EMBY_SOFT_MAX_PLAY_SECONDS")})')
+    print(f'Next run:         {state.get("next_run_at")}')
+    print(f'Next duration:    {state.get("next_duration_seconds")} sec')
+    print(f'Next unit:        {state.get("next_unit_name")}')
+    print(f'Last run:         {state.get("last_run_at")}')
+    print(f'Last status:      {state.get("last_status")}')
+    print(f'Last duration:    {state.get("last_duration_seconds")} sec')
+    print('')
+
+
+def tail_file(path, n=30):
+    if not path.exists():
+        print(f'No log file: {path}')
+        return
+    run(['tail', '-n', str(n), str(path)])
+
+
+def input_default(prompt, default=''):
+    val = input(f'{prompt} [{default}]: ').strip()
+    return val if val else default
+
+
+def reconfigure():
+    cfg = parse_env()
+    print('\n=== Reconfigure Emby Autoplay ===')
+    scheme = input_default('Protocol (http/https)', cfg.get('EMBY_SCHEME', 'http'))
+    host = input_default('Host / domain', cfg.get('EMBY_HOST', ''))
+    port = input_default('Port', cfg.get('EMBY_PORT', '8096'))
+    username = input_default('Username', cfg.get('EMBY_USERNAME', ''))
+    password = getpass('Password [hidden, leave blank to keep current]: ').strip()
+    min_days = input_default('Min days between runs', cfg.get('EMBY_MIN_DAYS', '22'))
+    max_days = input_default('Max days between runs', cfg.get('EMBY_MAX_DAYS', '28'))
+    min_play = input_default('Min play seconds (>300)', cfg.get('EMBY_MIN_PLAY_SECONDS', '301'))
+    soft_max = input_default('Preferred soft max play seconds', cfg.get('EMBY_SOFT_MAX_PLAY_SECONDS', '600'))
+    hard_max = input_default('Hard max play seconds (<1200)', cfg.get('EMBY_HARD_MAX_PLAY_SECONDS', '1199'))
+    soft_prob = input_default('Probability of staying within soft max (0-1)', cfg.get('EMBY_PREFER_SOFT_MAX_PROB', '0.85'))
+    verify_ssl = input_default('Verify SSL (true/false)', cfg.get('EMBY_VERIFY_SSL', 'true'))
+    timeout = input_default('HTTP timeout seconds', cfg.get('EMBY_TIMEOUT', '30'))
+
+    cfg['EMBY_SCHEME'] = scheme
+    cfg['EMBY_HOST'] = host
+    cfg['EMBY_PORT'] = port
+    cfg['EMBY_USERNAME'] = username
+    if password:
+        cfg['EMBY_PASSWORD'] = password
+    cfg['EMBY_MIN_DAYS'] = min_days
+    cfg['EMBY_MAX_DAYS'] = max_days
+    cfg['EMBY_MIN_PLAY_SECONDS'] = min_play
+    cfg['EMBY_SOFT_MAX_PLAY_SECONDS'] = soft_max
+    cfg['EMBY_HARD_MAX_PLAY_SECONDS'] = hard_max
+    cfg['EMBY_PREFER_SOFT_MAX_PROB'] = soft_prob
+    cfg['EMBY_VERIFY_SSL'] = verify_ssl
+    cfg['EMBY_TIMEOUT'] = timeout
+    save_env(cfg)
+    print('\nSaved config.')
+    print('Rescheduling next run...')
+    subprocess.run(['python3', str(SCHEDULER)])
+
+
+def manual_test():
+    print('\nRunning manual test...')
+    run([str(RUNNER)])
+
+
+def show_timer():
+    state = read_state()
+    unit = state.get('next_unit_name')
+    if not unit:
+        print('No next unit scheduled.')
+        return
+    run(['systemctl', 'status', f'{unit}.timer', '--no-pager'])
+
+
+def uninstall():
+    answer = input('Type YES to uninstall emby-autoplay: ').strip()
+    if answer == 'YES':
+        run([str(UNINSTALL)])
+    else:
+        print('Cancelled.')
+
+
+def menu():
+    while True:
+        print('''
+=== embyautoplay ===
+1. 查看状态
+2. 查看下次运行
+3. 查看播放日志
+4. 查看调度日志
+5. 手动测试运行
+6. 修改配置
+7. 重新预约下一次运行
+8. 卸载
+0. 退出
+''')
+        choice = input('选择: ').strip()
+        if choice == '1':
+            show_status()
+        elif choice == '2':
+            show_timer()
+        elif choice == '3':
+            tail_file(PLAY_LOG)
+        elif choice == '4':
+            tail_file(SCHED_LOG)
+        elif choice == '5':
+            manual_test()
+        elif choice == '6':
+            reconfigure()
+        elif choice == '7':
+            run(['python3', str(SCHEDULER)])
+        elif choice == '8':
+            uninstall()
+            return
+        elif choice == '0':
+            return
+        else:
+            print('无效选择。')
+
+
+if __name__ == '__main__':
+    menu()

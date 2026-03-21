@@ -20,5 +20,6 @@ PY
   fi
 fi
 
+rm -f /usr/local/bin/embyautoplay
 rm -rf "$INSTALL_DIR"
 echo "Removed $INSTALL_DIR"
