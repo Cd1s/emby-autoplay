@@ -40,7 +40,14 @@ fetch "$REPO_RAW_BASE/src/emby_keepalive.env.example" "$TMP_DIR/src/emby_keepali
 chmod +x "$TMP_DIR/install.sh"
 
 cd "$TMP_DIR"
-./install.sh
+if [[ -t 0 ]]; then
+  ./install.sh
+elif [[ -r /dev/tty ]]; then
+  ./install.sh < /dev/tty
+else
+  echo "No interactive TTY available. Please run in a real terminal." >&2
+  exit 1
+fi
 
 echo
 echo "One-line install complete."

@@ -54,4 +54,10 @@ echo "Play log:    $INSTALL_DIR/logs/emby_keepalive.log"
 echo "Sched log:   $INSTALL_DIR/logs/emby_keepalive_scheduler.log"
 echo "Command:     embyautoplay"
 echo
-EMBY_AUTOPLAY_HOME="$INSTALL_DIR" /usr/bin/python3 "$INSTALL_DIR/interactive_install.py"
+if [[ -t 0 ]]; then
+  EMBY_AUTOPLAY_HOME="$INSTALL_DIR" /usr/bin/python3 "$INSTALL_DIR/interactive_install.py"
+elif [[ -r /dev/tty ]]; then
+  EMBY_AUTOPLAY_HOME="$INSTALL_DIR" /usr/bin/python3 "$INSTALL_DIR/interactive_install.py" < /dev/tty
+else
+  echo "No interactive TTY available. Please run: EMBY_AUTOPLAY_HOME=$INSTALL_DIR python3 $INSTALL_DIR/interactive_install.py" >&2
+fi
