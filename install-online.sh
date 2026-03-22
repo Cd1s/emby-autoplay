@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="20260322-0003"
+VERSION="20260322-0004"
 REPO_RAW_BASE="https://raw.githubusercontent.com/Cd1s/emby-autoplay/main"
 INSTALL_DIR="/opt/emby-autoplay"
 TMP_DIR="$(mktemp -d)"

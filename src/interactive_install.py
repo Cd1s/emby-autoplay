@@ -61,11 +61,32 @@ def reset_state():
     }, ensure_ascii=False, indent=2), encoding='utf-8')
 
 
+def verify_timer_registration():
+    if not STATE_PATH.exists():
+        raise RuntimeError('state file not found after scheduling')
+    state = json.loads(STATE_PATH.read_text(encoding='utf-8'))
+    unit = state.get('next_unit_name')
+    if not unit:
+        raise RuntimeError('next_unit_name missing after scheduling')
+    timer_unit = f'{unit}.timer'
+    service_unit = f'{unit}.service'
+    timer_check = subprocess.run(['systemctl', 'is-active', timer_unit], capture_output=True, text=True)
+    timer_state = (timer_check.stdout or timer_check.stderr).strip()
+    if timer_state not in ('active', 'activating'):
+        status = subprocess.run(['systemctl', 'status', timer_unit, '--no-pager'], capture_output=True, text=True)
+        detail = f"timer verification failed for {timer_unit}: {timer_state}\n{status.stdout}\n{status.stderr}"
+        raise RuntimeError(detail)
+    print(f'定时器验证通过: {timer_unit} ({timer_state}) -> {service_unit}')
+
+
 def apply_and_schedule(cfg):
     save_env(cfg)
     reset_state()
     print('\n配置已保存，正在预约下一次运行...')
-    subprocess.run(['python3', str(SCHEDULER)], check=False)
+    sched = subprocess.run(['python3', str(SCHEDULER)], check=False)
+    if sched.returncode != 0:
+        raise SystemExit(sched.returncode)
+    verify_timer_registration()
     print('完成。你现在可以运行：embyautoplay')
 
 
