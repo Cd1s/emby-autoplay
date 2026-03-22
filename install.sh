@@ -19,7 +19,8 @@ cp "$SRC_DIR/emby_keepalive_systemd_runner.sh" "$INSTALL_DIR/"
 cp "$SRC_DIR/run_emby_keepalive.sh" "$INSTALL_DIR/"
 cp "$SRC_DIR/interactive_install.py" "$INSTALL_DIR/"
 cp "$SRC_DIR/embyautoplay" "$INSTALL_DIR/"
-chmod +x "$INSTALL_DIR/emby_keepalive.py" "$INSTALL_DIR/emby_keepalive_systemd_scheduler.py" "$INSTALL_DIR/emby_keepalive_systemd_runner.sh" "$INSTALL_DIR/run_emby_keepalive.sh" "$INSTALL_DIR/interactive_install.py" "$INSTALL_DIR/embyautoplay"
+cp "$REPO_DIR/uninstall.sh" "$INSTALL_DIR/"
+chmod +x "$INSTALL_DIR/emby_keepalive.py" "$INSTALL_DIR/emby_keepalive_systemd_scheduler.py" "$INSTALL_DIR/emby_keepalive_systemd_runner.sh" "$INSTALL_DIR/run_emby_keepalive.sh" "$INSTALL_DIR/interactive_install.py" "$INSTALL_DIR/embyautoplay" "$INSTALL_DIR/uninstall.sh"
 ln -sf "$INSTALL_DIR/embyautoplay" /usr/local/bin/embyautoplay
 
 if [[ ! -f "$INSTALL_DIR/emby_keepalive.env" ]]; then

@@ -32,6 +32,7 @@ need_cmd systemd-run
 
 mkdir -p "$TMP_DIR/src"
 fetch "$REPO_RAW_BASE/install.sh" "$TMP_DIR/install.sh"
+fetch "$REPO_RAW_BASE/uninstall.sh" "$TMP_DIR/uninstall.sh"
 fetch "$REPO_RAW_BASE/src/emby_keepalive.py" "$TMP_DIR/src/emby_keepalive.py"
 fetch "$REPO_RAW_BASE/src/emby_keepalive_config.py" "$TMP_DIR/src/emby_keepalive_config.py"
 fetch "$REPO_RAW_BASE/src/emby_keepalive_systemd_scheduler.py" "$TMP_DIR/src/emby_keepalive_systemd_scheduler.py"
