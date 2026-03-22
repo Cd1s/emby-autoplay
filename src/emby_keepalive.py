@@ -5,6 +5,7 @@ import time
 import random
 import requests
 from emby_keepalive_config import parse_env
+from emby_keepalive_history import add_history, recent_item_ids
 
 BASE_DIR = os.environ.get('EMBY_AUTOPLAY_HOME', '/opt/emby-autoplay')
 CFG = parse_env()
@@ -90,7 +91,10 @@ def main():
         print('No playable items found', file=sys.stderr)
         sys.exit(3)
 
-    item = random.choice(playable)
+    recent_ids = recent_item_ids(8)
+    filtered = [i for i in playable if str(i.get('Id')) not in recent_ids]
+    candidate_pool = filtered or playable
+    item = random.choice(candidate_pool)
     media_source_id = item['MediaSources'][0]['Id']
     item_id = item['Id']
     runtime_ticks = int(item.get('RunTimeTicks') or 0)
@@ -161,6 +165,7 @@ def main():
     })
 
     verify = req(session, 'GET', f'/Users/{user_id}/Items/{item_id}?Fields=UserData,RunTimeTicks').json()
+    add_history(item_id, item.get('Name') or '')
     print('UserData:', verify.get('UserData'))
     print('Stopped cleanly.')
 

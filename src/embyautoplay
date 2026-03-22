@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 import sys
+import random
 from pathlib import Path
 from getpass import getpass
 
@@ -121,9 +122,23 @@ def reconfigure():
     subprocess.run(['python3', str(SCHEDULER)])
 
 
+def random_duration(cfg):
+    min_s = int(cfg.get('EMBY_MIN_PLAY_SECONDS', '301'))
+    soft_max = int(cfg.get('EMBY_SOFT_MAX_PLAY_SECONDS', '600'))
+    hard_max = int(cfg.get('EMBY_HARD_MAX_PLAY_SECONDS', '1199'))
+    p = float(cfg.get('EMBY_PREFER_SOFT_MAX_PROB', '0.85'))
+    if random.random() < p:
+        return random.randint(min_s, soft_max)
+    return random.randint(soft_max + 1, hard_max)
+
+
 def manual_test():
-    print('\nRunning manual test...')
-    run([str(RUNNER)])
+    cfg = parse_env()
+    seconds = random_duration(cfg)
+    print(f'\nRunning manual test with random duration: {seconds}s')
+    env = os.environ.copy()
+    env['EMBY_PLAY_SECONDS'] = str(seconds)
+    subprocess.run([str(RUNNER)], env=env)
 
 
 def show_timer():
