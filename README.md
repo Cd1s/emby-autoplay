@@ -22,16 +22,43 @@
 
 ## 一键安装（无需克隆仓库）
 
-### curl
+当前推荐使用**固定 commit 安装器**，避免 `main` 分支的 Raw CDN 缓存导致拿到旧脚本。
+
+### 推荐方式：下载后执行
+
+#### curl
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Cd1s/emby-autoplay/main/install-online.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Cd1s/emby-autoplay/9b0cc91/install-online.sh -o install-online.sh && bash install-online.sh
 ```
 
-### wget
+#### wget
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/Cd1s/emby-autoplay/main/install-online.sh | bash
+wget -qO install-online.sh https://raw.githubusercontent.com/Cd1s/emby-autoplay/9b0cc91/install-online.sh && bash install-online.sh
+```
+
+### 也可以直接 pipe 给 bash
+
+#### curl
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Cd1s/emby-autoplay/9b0cc91/install-online.sh | bash
+```
+
+#### wget
+
+```bash
+wget -qO- https://raw.githubusercontent.com/Cd1s/emby-autoplay/9b0cc91/install-online.sh | bash
+```
+
+### 重要说明
+
+下面这种命令**只会把脚本打印到屏幕，不会执行**：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Cd1s/emby-autoplay/9b0cc91/install-online.sh
+wget -qO- https://raw.githubusercontent.com/Cd1s/emby-autoplay/9b0cc91/install-online.sh
 ```
 
 安装过程会交互询问：
