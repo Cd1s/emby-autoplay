@@ -2,8 +2,9 @@
 import json
 import os
 import subprocess
-from getpass import getpass
+from getpass import getpass, GetPassWarning
 from pathlib import Path
+import warnings
 
 from emby_keepalive_config import save_env, parse_env
 
@@ -45,8 +46,65 @@ def input_bool(prompt, default='true'):
         print('请输入 true 或 false。')
 
 
+def reset_state():
+    now = __import__('datetime').datetime.now(__import__('datetime').timezone.utc).replace(microsecond=0).isoformat().replace('+00:00', 'Z')
+    STATE_PATH.write_text(json.dumps({
+        'enabled': True,
+        'last_run_at': None,
+        'last_status': None,
+        'last_duration_seconds': None,
+        'next_run_at': None,
+        'next_duration_seconds': None,
+        'next_unit_name': None,
+        'created_at': now,
+        'updated_at': now,
+    }, ensure_ascii=False, indent=2), encoding='utf-8')
+
+
+def apply_and_schedule(cfg):
+    save_env(cfg)
+    reset_state()
+    print('\n配置已保存，正在预约下一次运行...')
+    subprocess.run(['python3', str(SCHEDULER)], check=False)
+    print('完成。你现在可以运行：embyautoplay')
+
+
+def env_override(cfg, key, env_name):
+    val = os.environ.get(env_name)
+    if val is not None and val != '':
+        cfg[key] = val
+
+
+def maybe_non_interactive(cfg):
+    auto = os.environ.get('EMBY_AUTOPLAY_AUTO_SETUP', '').lower() in ('1', 'true', 'yes')
+    if not auto:
+        return False
+
+    env_override(cfg, 'EMBY_SCHEME', 'EMBY_SCHEME')
+    env_override(cfg, 'EMBY_HOST', 'EMBY_HOST')
+    env_override(cfg, 'EMBY_PORT', 'EMBY_PORT')
+    env_override(cfg, 'EMBY_URL', 'EMBY_URL')
+    env_override(cfg, 'EMBY_USERNAME', 'EMBY_USERNAME')
+    env_override(cfg, 'EMBY_PASSWORD', 'EMBY_PASSWORD')
+    env_override(cfg, 'EMBY_MIN_DAYS', 'EMBY_MIN_DAYS')
+    env_override(cfg, 'EMBY_MAX_DAYS', 'EMBY_MAX_DAYS')
+    env_override(cfg, 'EMBY_MIN_PLAY_SECONDS', 'EMBY_MIN_PLAY_SECONDS')
+    env_override(cfg, 'EMBY_SOFT_MAX_PLAY_SECONDS', 'EMBY_SOFT_MAX_PLAY_SECONDS')
+    env_override(cfg, 'EMBY_HARD_MAX_PLAY_SECONDS', 'EMBY_HARD_MAX_PLAY_SECONDS')
+    env_override(cfg, 'EMBY_PREFER_SOFT_MAX_PROB', 'EMBY_PREFER_SOFT_MAX_PROB')
+    env_override(cfg, 'EMBY_VERIFY_SSL', 'EMBY_VERIFY_SSL')
+    env_override(cfg, 'EMBY_TIMEOUT', 'EMBY_TIMEOUT')
+
+    print('=== Emby Autoplay 自动配置模式 ===')
+    apply_and_schedule(cfg)
+    return True
+
+
 def main():
     cfg = parse_env()
+    if maybe_non_interactive(cfg):
+        return
+
     print('=== Emby Autoplay 交互安装 ===')
     print('下面会逐项询问，按回车可使用默认值。\n')
 
@@ -54,7 +112,9 @@ def main():
     cfg['EMBY_HOST'] = input_default('请输入 Emby 域名或 IP', cfg.get('EMBY_HOST', ''))
     cfg['EMBY_PORT'] = input_default('请输入端口', cfg.get('EMBY_PORT', '8096'))
     cfg['EMBY_USERNAME'] = input_default('请输入用户名', cfg.get('EMBY_USERNAME', ''))
-    pwd = getpass('请输入密码（隐藏输入，直接回车保留现有值）: ').strip()
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', category=GetPassWarning)
+        pwd = getpass('请输入密码（隐藏输入，直接回车保留现有值）: ').strip()
     if pwd:
         cfg['EMBY_PASSWORD'] = pwd
 
@@ -72,24 +132,7 @@ def main():
     cfg['EMBY_VERIFY_SSL'] = input_bool('是否校验 SSL 证书', cfg.get('EMBY_VERIFY_SSL', 'true'))
     cfg['EMBY_TIMEOUT'] = input_default('HTTP 超时秒数', cfg.get('EMBY_TIMEOUT', '30'))
 
-    save_env(cfg)
-
-    now = __import__('datetime').datetime.now(__import__('datetime').timezone.utc).replace(microsecond=0).isoformat().replace('+00:00','Z')
-    STATE_PATH.write_text(json.dumps({
-        'enabled': True,
-        'last_run_at': None,
-        'last_status': None,
-        'last_duration_seconds': None,
-        'next_run_at': None,
-        'next_duration_seconds': None,
-        'next_unit_name': None,
-        'created_at': now,
-        'updated_at': now,
-    }, ensure_ascii=False, indent=2), encoding='utf-8')
-
-    print('\n配置已保存，正在预约下一次运行...')
-    subprocess.run(['python3', str(SCHEDULER)], check=False)
-    print('完成。你现在可以运行：embyautoplay')
+    apply_and_schedule(cfg)
 
 
 if __name__ == '__main__':

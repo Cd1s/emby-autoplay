@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="20260322-0001"
+VERSION="20260322-0002"
 REPO_RAW_BASE="https://raw.githubusercontent.com/Cd1s/emby-autoplay/main"
 INSTALL_DIR="/opt/emby-autoplay"
 TMP_DIR="$(mktemp -d)"
@@ -49,13 +49,9 @@ EMBY_AUTOPLAY_SKIP_INTERACTIVE=1 ./install.sh
 
 echo
 echo "Base install complete."
-if [[ -t 0 || -r /dev/tty ]]; then
+if [[ -t 0 ]]; then
   echo "Starting interactive setup..."
-  if [[ -r /dev/tty ]]; then
-    EMBY_AUTOPLAY_HOME="$INSTALL_DIR" /usr/bin/python3 "$INSTALL_DIR/interactive_install.py" < /dev/tty
-  else
-    EMBY_AUTOPLAY_HOME="$INSTALL_DIR" /usr/bin/python3 "$INSTALL_DIR/interactive_install.py"
-  fi
+  EMBY_AUTOPLAY_HOME="$INSTALL_DIR" /usr/bin/python3 "$INSTALL_DIR/interactive_install.py"
 
   echo
   echo "One-line install complete."
@@ -67,5 +63,5 @@ else
   echo "  1) EMBY_AUTOPLAY_HOME=$INSTALL_DIR python3 $INSTALL_DIR/interactive_install.py"
   echo "  2) embyautoplay  # then choose 修改配置 / 重新预约下一次运行"
   echo
-  echo "This is expected in non-interactive environments; install-online.sh no longer exits with failure here."
+  echo "Tip: you can also preseed env values before running interactive_install.py for automation."
 fi
