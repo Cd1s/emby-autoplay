@@ -49,9 +49,11 @@ EMBY_AUTOPLAY_SKIP_INTERACTIVE=1 ./install.sh
 
 echo
 echo "Base install complete."
-if [[ "${EMBY_AUTOPLAY_AUTO_SETUP:-}" =~ ^(1|true|yes)$ ]]; then
+AUTO_FLAG="${EMBY_AUTOPLAY_AUTO_SETUP:-}"
+shopt -s nocasematch
+if [[ "$AUTO_FLAG" =~ ^(1|true|yes)$ ]]; then
   echo "Starting automatic setup..."
-  EMBY_AUTOPLAY_HOME="$INSTALL_DIR" /usr/bin/python3 "$INSTALL_DIR/interactive_install.py"
+  EMBY_AUTOPLAY_HOME="$INSTALL_DIR" EMBY_AUTOPLAY_AUTO_SETUP=1 /usr/bin/python3 "$INSTALL_DIR/interactive_install.py"
   echo
   echo "One-line install complete."
   echo "Manage with: embyautoplay"
