@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="20260322-0002"
+VERSION="20260322-0003"
 REPO_RAW_BASE="https://raw.githubusercontent.com/Cd1s/emby-autoplay/main"
 INSTALL_DIR="/opt/emby-autoplay"
 TMP_DIR="$(mktemp -d)"
@@ -49,7 +49,13 @@ EMBY_AUTOPLAY_SKIP_INTERACTIVE=1 ./install.sh
 
 echo
 echo "Base install complete."
-if [[ -t 0 ]]; then
+if [[ "${EMBY_AUTOPLAY_AUTO_SETUP:-}" =~ ^(1|true|yes)$ ]]; then
+  echo "Starting automatic setup..."
+  EMBY_AUTOPLAY_HOME="$INSTALL_DIR" /usr/bin/python3 "$INSTALL_DIR/interactive_install.py"
+  echo
+  echo "One-line install complete."
+  echo "Manage with: embyautoplay"
+elif [[ -t 0 ]]; then
   echo "Starting interactive setup..."
   EMBY_AUTOPLAY_HOME="$INSTALL_DIR" /usr/bin/python3 "$INSTALL_DIR/interactive_install.py"
 
@@ -63,5 +69,5 @@ else
   echo "  1) EMBY_AUTOPLAY_HOME=$INSTALL_DIR python3 $INSTALL_DIR/interactive_install.py"
   echo "  2) embyautoplay  # then choose 修改配置 / 重新预约下一次运行"
   echo
-  echo "Tip: you can also preseed env values before running interactive_install.py for automation."
+  echo "Tip: set EMBY_AUTOPLAY_AUTO_SETUP=1 with EMBY_* env vars for full unattended install."
 fi
