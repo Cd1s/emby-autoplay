@@ -25,7 +25,7 @@ if not BASE_URL or not USERNAME or not PASSWORD:
 
 AUTH_HEADER = (
     f'MediaBrowser Client="{CLIENT_NAME}", '
-    f'Device="EmbyAutoplay", DeviceId="{DEVICE_ID}", Version="{CLIENT_VERSION}"'
+    f'Device="Linux", DeviceId="{DEVICE_ID}", Version="{CLIENT_VERSION}"'
 )
 
 DEVICE_PROFILE = {
