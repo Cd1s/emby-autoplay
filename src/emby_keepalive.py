@@ -80,21 +80,33 @@ def main():
         'SupportsPersistentIdentifier': False,
     })
 
-    items = req(
-        session,
-        'GET',
-        f'/Users/{user_id}/Items?Recursive=true&IncludeItemTypes=Movie,Episode&Limit=200&Fields=MediaSources,RunTimeTicks'
-    ).json().get('Items', [])
-
-    playable = [i for i in items if i.get('MediaSources')]
-    if not playable:
-        print('No playable items found', file=sys.stderr)
+    recent_ids = recent_item_ids(8)
+    base_query = f'/Users/{user_id}/Items?Recursive=true&IncludeItemTypes=Movie,Episode&Limit=1&Fields=MediaSources,RunTimeTicks,SeriesName'
+    total_probe = req(session, 'GET', base_query).json()
+    total_count = int(total_probe.get('TotalRecordCount') or 0)
+    if total_count <= 0:
+        print('No items found in library', file=sys.stderr)
         sys.exit(3)
 
-    recent_ids = recent_item_ids(8)
-    filtered = [i for i in playable if str(i.get('Id')) not in recent_ids]
-    candidate_pool = filtered or playable
-    item = random.choice(candidate_pool)
+    item = None
+    max_attempts = 25
+    for _ in range(max_attempts):
+        start_index = random.randint(0, max(0, total_count - 1))
+        page = req(
+            session,
+            'GET',
+            f'/Users/{user_id}/Items?Recursive=true&IncludeItemTypes=Movie,Episode&Limit=20&StartIndex={start_index}&Fields=MediaSources,RunTimeTicks,SeriesName'
+        ).json().get('Items', [])
+        playable = [i for i in page if i.get('MediaSources') and str(i.get('Id')) not in recent_ids]
+        if not playable:
+            playable = [i for i in page if i.get('MediaSources')]
+        if playable:
+            item = random.choice(playable)
+            break
+
+    if not item:
+        print('No playable items found after random sampling', file=sys.stderr)
+        sys.exit(3)
     media_source_id = item['MediaSources'][0]['Id']
     item_id = item['Id']
     runtime_ticks = int(item.get('RunTimeTicks') or 0)
