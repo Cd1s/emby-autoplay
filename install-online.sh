@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="20260321-2009"
+VERSION="20260322-0001"
 REPO_RAW_BASE="https://raw.githubusercontent.com/Cd1s/emby-autoplay/main"
 INSTALL_DIR="/opt/emby-autoplay"
 TMP_DIR="$(mktemp -d)"
@@ -49,15 +49,23 @@ EMBY_AUTOPLAY_SKIP_INTERACTIVE=1 ./install.sh
 
 echo
 echo "Base install complete."
-echo "Starting interactive setup..."
-if [[ -r /dev/tty ]]; then
-  EMBY_AUTOPLAY_HOME="$INSTALL_DIR" /usr/bin/python3 "$INSTALL_DIR/interactive_install.py" < /dev/tty
-else
-  echo "No interactive TTY available." >&2
-  echo "Please run manually: EMBY_AUTOPLAY_HOME=$INSTALL_DIR python3 $INSTALL_DIR/interactive_install.py" >&2
-  exit 1
-fi
+if [[ -t 0 || -r /dev/tty ]]; then
+  echo "Starting interactive setup..."
+  if [[ -r /dev/tty ]]; then
+    EMBY_AUTOPLAY_HOME="$INSTALL_DIR" /usr/bin/python3 "$INSTALL_DIR/interactive_install.py" < /dev/tty
+  else
+    EMBY_AUTOPLAY_HOME="$INSTALL_DIR" /usr/bin/python3 "$INSTALL_DIR/interactive_install.py"
+  fi
 
-echo
-echo "One-line install complete."
-echo "Manage with: embyautoplay"
+  echo
+  echo "One-line install complete."
+  echo "Manage with: embyautoplay"
+else
+  echo "No interactive TTY detected."
+  echo "Base install completed successfully."
+  echo "Next step: run one of the following:"
+  echo "  1) EMBY_AUTOPLAY_HOME=$INSTALL_DIR python3 $INSTALL_DIR/interactive_install.py"
+  echo "  2) embyautoplay  # then choose 修改配置 / 重新预约下一次运行"
+  echo
+  echo "This is expected in non-interactive environments; install-online.sh no longer exits with failure here."
+fi

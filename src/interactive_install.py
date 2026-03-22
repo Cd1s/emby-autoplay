@@ -74,19 +74,18 @@ def main():
 
     save_env(cfg)
 
-    if not STATE_PATH.exists():
-        now = __import__('datetime').datetime.now(__import__('datetime').timezone.utc).replace(microsecond=0).isoformat().replace('+00:00','Z')
-        STATE_PATH.write_text(json.dumps({
-            'enabled': True,
-            'last_run_at': None,
-            'last_status': None,
-            'last_duration_seconds': None,
-            'next_run_at': None,
-            'next_duration_seconds': None,
-            'next_unit_name': None,
-            'created_at': now,
-            'updated_at': now,
-        }, ensure_ascii=False, indent=2), encoding='utf-8')
+    now = __import__('datetime').datetime.now(__import__('datetime').timezone.utc).replace(microsecond=0).isoformat().replace('+00:00','Z')
+    STATE_PATH.write_text(json.dumps({
+        'enabled': True,
+        'last_run_at': None,
+        'last_status': None,
+        'last_duration_seconds': None,
+        'next_run_at': None,
+        'next_duration_seconds': None,
+        'next_unit_name': None,
+        'created_at': now,
+        'updated_at': now,
+    }, ensure_ascii=False, indent=2), encoding='utf-8')
 
     print('\n配置已保存，正在预约下一次运行...')
     subprocess.run(['python3', str(SCHEDULER)], check=False)
