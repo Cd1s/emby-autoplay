@@ -12,7 +12,7 @@ DEFAULTS = {
     'EMBY_URL': '',
     'EMBY_USERNAME': '',
     'EMBY_PASSWORD': '',
-    'EMBY_DEVICE_ID': 'linux-yamby-autoplay',
+    'EMBY_DEVICE_ID': 'debian-yamby',
     'EMBY_CLIENT_NAME': 'Yamby',
     'EMBY_CLIENT_VERSION': '1.0.0',
     'EMBY_VERIFY_SSL': 'true',
