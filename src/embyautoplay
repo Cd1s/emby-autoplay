@@ -165,6 +165,30 @@ def show_timer():
         subprocess.run(['python3', str(SCHEDULER)])
 
 
+def force_reschedule():
+    state = read_state()
+    unit = state.get('next_unit_name')
+    if unit:
+        print(f'\nCancelling current scheduled timer: {unit}.timer')
+        subprocess.run(['systemctl', 'stop', f'{unit}.timer'])
+        subprocess.run(['systemctl', 'stop', f'{unit}.service'])
+        subprocess.run(['systemctl', 'reset-failed', f'{unit}.timer', f'{unit}.service'])
+    now = __import__('datetime').datetime.now(__import__('datetime').timezone.utc).replace(microsecond=0).isoformat().replace('+00:00','Z')
+    STATE_PATH.write_text(json.dumps({
+        'enabled': True,
+        'last_run_at': state.get('last_run_at'),
+        'last_status': state.get('last_status'),
+        'last_duration_seconds': state.get('last_duration_seconds'),
+        'next_run_at': None,
+        'next_duration_seconds': None,
+        'next_unit_name': None,
+        'created_at': state.get('created_at', now),
+        'updated_at': now,
+    }, ensure_ascii=False, indent=2), encoding='utf-8')
+    print('Rescheduling next run...')
+    subprocess.run(['python3', str(SCHEDULER)])
+
+
 def uninstall():
     answer = input('Type YES to uninstall emby-autoplay: ').strip()
     if answer == 'YES':
@@ -201,7 +225,7 @@ def menu():
         elif choice == '6':
             reconfigure()
         elif choice == '7':
-            run(['python3', str(SCHEDULER)])
+            force_reschedule()
         elif choice == '8':
             uninstall()
             return
