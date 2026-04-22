@@ -34,7 +34,10 @@ def unit_exists(unit_name):
 def read_state():
     if not STATE_PATH.exists():
         return {}
-    return json.loads(STATE_PATH.read_text(encoding='utf-8'))
+    try:
+        return json.loads(STATE_PATH.read_text(encoding='utf-8'))
+    except (json.JSONDecodeError, OSError):
+        return {}
 
 
 def show_status():
@@ -125,6 +128,13 @@ def reconfigure():
     cfg['EMBY_PREFER_SOFT_MAX_PROB'] = soft_prob
     cfg['EMBY_VERIFY_SSL'] = verify_ssl
     cfg['EMBY_TIMEOUT'] = timeout
+
+    old_unit = read_state().get('next_unit_name')
+    if old_unit:
+        for u in (f'{old_unit}.timer', f'{old_unit}.service'):
+            if unit_exists(u):
+                run_quiet(['systemctl', 'stop', u])
+
     save_env(cfg)
     now = __import__('datetime').datetime.now(__import__('datetime').timezone.utc).replace(microsecond=0).isoformat().replace('+00:00','Z')
     STATE_PATH.write_text(json.dumps({

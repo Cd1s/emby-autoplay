@@ -177,8 +177,8 @@ def main():
             'Failed': False,
         })
 
-        verify = req(session, 'GET', f'/Users/{user_id}/Items/{item_id}?Fields=UserData,RunTimeTicks').json()
         add_history(item_id, item.get('Name') or '')
+        verify = req(session, 'GET', f'/Users/{user_id}/Items/{item_id}?Fields=UserData,RunTimeTicks').json()
         print('UserData:', verify.get('UserData'))
         print('Stopped cleanly.')
     finally:

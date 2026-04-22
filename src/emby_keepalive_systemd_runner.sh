@@ -14,8 +14,11 @@ path = os.path.join(base, 'emby_keepalive_state.json')
 now = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace('+00:00','Z')
 state = {}
 if os.path.exists(path):
-    with open(path, 'r', encoding='utf-8') as f:
-        state = json.load(f)
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            state = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        state = {}
 state['last_status'] = 'running'
 state['updated_at'] = now
 with open(path + '.tmp', 'w', encoding='utf-8') as f:
