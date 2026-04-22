@@ -22,6 +22,15 @@ def run(cmd):
     return subprocess.run(cmd, text=True)
 
 
+def run_quiet(cmd):
+    return subprocess.run(cmd, text=True, capture_output=True)
+
+
+def unit_exists(unit_name):
+    result = subprocess.run(['systemctl', 'status', unit_name, '--no-pager'], text=True, capture_output=True)
+    return result.returncode == 0
+
+
 def read_state():
     if not STATE_PATH.exists():
         return {}
@@ -167,12 +176,16 @@ def show_timer():
 
 def force_reschedule():
     state = read_state()
-    unit = state.get('next_unit_name')
-    if unit:
-        print(f'\nCancelling current scheduled timer: {unit}.timer')
-        subprocess.run(['systemctl', 'stop', f'{unit}.timer'])
-        subprocess.run(['systemctl', 'stop', f'{unit}.service'])
-        subprocess.run(['systemctl', 'reset-failed', f'{unit}.timer', f'{unit}.service'])
+    old_run = state.get('next_run_at')
+    old_unit = state.get('next_unit_name')
+    if old_unit:
+        print(f'\nCancelling current scheduled timer: {old_unit}.timer')
+        for unit in (f'{old_unit}.timer', f'{old_unit}.service'):
+            if unit_exists(unit):
+                run_quiet(['systemctl', 'stop', unit])
+        existing_units = [unit for unit in (f'{old_unit}.timer', f'{old_unit}.service') if unit_exists(unit)]
+        if existing_units:
+            run_quiet(['systemctl', 'reset-failed', *existing_units])
     now = __import__('datetime').datetime.now(__import__('datetime').timezone.utc).replace(microsecond=0).isoformat().replace('+00:00','Z')
     STATE_PATH.write_text(json.dumps({
         'enabled': True,
@@ -187,6 +200,9 @@ def force_reschedule():
     }, ensure_ascii=False, indent=2), encoding='utf-8')
     print('Rescheduling next run...')
     subprocess.run(['python3', str(SCHEDULER)])
+    new_state = read_state()
+    print(f"Rescheduled: {old_run or 'None'} -> {new_state.get('next_run_at')}")
+    print(f"Unit: {old_unit or 'None'} -> {new_state.get('next_unit_name')}")
 
 
 def uninstall():
