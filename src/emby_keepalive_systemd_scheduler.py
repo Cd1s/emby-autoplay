@@ -86,6 +86,15 @@ def schedule_systemd_run(run_at, duration_seconds):
     return unit_name, result.stdout.strip()
 
 
+def unit_timer_exists(unit_name):
+    result = subprocess.run(
+        ['systemctl', 'status', f'{unit_name}.timer', '--no-pager'],
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0
+
+
 def ensure_state(state, current_time):
     if state:
         return state
@@ -132,9 +141,21 @@ def main():
         state['next_unit_name'] = None
 
     if state.get('next_run_at') and state.get('next_unit_name'):
-        print(f'Already scheduled: unit={state["next_unit_name"]} next_run_at={state["next_run_at"]} duration={state["next_duration_seconds"]}')
-        save_state(state)
-        return 0
+        if not unit_timer_exists(state['next_unit_name']):
+            missing_unit = state['next_unit_name']
+            log_line(
+                f'Missing timer detected for recorded unit={missing_unit}; '
+                'clearing stale schedule state and recreating it'
+            )
+            state['next_run_at'] = None
+            state['next_duration_seconds'] = None
+            state['next_unit_name'] = None
+            state['updated_at'] = iso(current_time)
+            save_state(state)
+        else:
+            print(f'Already scheduled: unit={state["next_unit_name"]} next_run_at={state["next_run_at"]} duration={state["next_duration_seconds"]}')
+            save_state(state)
+            return 0
 
     plan_next(state, current_time)
     print(f'Scheduled: unit={state["next_unit_name"]} next_run_at={state["next_run_at"]} duration={state["next_duration_seconds"]}')

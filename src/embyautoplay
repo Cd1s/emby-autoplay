@@ -159,7 +159,10 @@ def show_timer():
     if not unit:
         print('No next unit scheduled.')
         return
-    run(['systemctl', 'status', f'{unit}.timer', '--no-pager'])
+    result = subprocess.run(['systemctl', 'status', f'{unit}.timer', '--no-pager'])
+    if result.returncode != 0:
+        print('\nRecorded next timer is missing. Rescheduling a new one...')
+        subprocess.run(['python3', str(SCHEDULER)])
 
 
 def uninstall():
