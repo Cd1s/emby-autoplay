@@ -140,7 +140,9 @@ def reconfigure():
     }, ensure_ascii=False, indent=2), encoding='utf-8')
     print('\nSaved config.')
     print('Rescheduling next run...')
-    subprocess.run(['python3', str(SCHEDULER)])
+    r = subprocess.run(['python3', str(SCHEDULER)])
+    if r.returncode != 0:
+        print('错误：调度失败，请检查 systemd 日志。')
 
 
 def random_duration(cfg):
@@ -159,7 +161,9 @@ def manual_test():
     print(f'\nRunning manual test with random duration: {seconds}s')
     env = os.environ.copy()
     env['EMBY_PLAY_SECONDS'] = str(seconds)
-    subprocess.run([str(RUNNER)], env=env)
+    r = subprocess.run([str(RUNNER)], env=env)
+    if r.returncode != 0:
+        print(f'错误：测试运行失败（退出码 {r.returncode}），请查看播放日志。')
 
 
 def show_timer():
@@ -171,7 +175,9 @@ def show_timer():
     result = subprocess.run(['systemctl', 'status', f'{unit}.timer', '--no-pager'])
     if result.returncode != 0:
         print('\nRecorded next timer is missing. Rescheduling a new one...')
-        subprocess.run(['python3', str(SCHEDULER)])
+        r = subprocess.run(['python3', str(SCHEDULER)])
+        if r.returncode != 0:
+            print('错误：调度失败，请检查 systemd 日志。')
 
 
 def force_reschedule():
@@ -199,7 +205,9 @@ def force_reschedule():
         'updated_at': now,
     }, ensure_ascii=False, indent=2), encoding='utf-8')
     print('Rescheduling next run...')
-    subprocess.run(['python3', str(SCHEDULER)])
+    r = subprocess.run(['python3', str(SCHEDULER)])
+    if r.returncode != 0:
+        print('错误：调度失败，请检查 systemd 日志。')
     new_state = read_state()
     print(f"Rescheduled: {old_run or 'None'} -> {new_state.get('next_run_at')}")
     print(f"Unit: {old_unit or 'None'} -> {new_state.get('next_unit_name')}")

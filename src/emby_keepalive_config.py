@@ -79,9 +79,9 @@ def hydrate_from_url(data):
         data['EMBY_SCHEME'] = p.scheme
     if p.hostname:
         data['EMBY_HOST'] = p.hostname
-    if p.port:
+    if p.port is not None:
         data['EMBY_PORT'] = str(p.port)
-    elif not data.get('EMBY_PORT'):
+    else:
         data['EMBY_PORT'] = '443' if p.scheme == 'https' else '80'
 
 

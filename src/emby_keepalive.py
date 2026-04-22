@@ -12,7 +12,7 @@ CFG = parse_env()
 BASE_URL = os.environ.get('EMBY_URL', CFG.get('EMBY_URL', '')).rstrip('/')
 USERNAME = os.environ.get('EMBY_USERNAME', CFG.get('EMBY_USERNAME', ''))
 PASSWORD = os.environ.get('EMBY_PASSWORD', CFG.get('EMBY_PASSWORD', ''))
-PLAY_SECONDS = int(os.environ.get('EMBY_PLAY_SECONDS', '120'))
+PLAY_SECONDS = int(os.environ.get('EMBY_PLAY_SECONDS', CFG.get('EMBY_PLAY_SECONDS_DEFAULT', '300')))
 DEVICE_ID = os.environ.get('EMBY_DEVICE_ID', CFG.get('EMBY_DEVICE_ID', 'emby-autoplay'))
 CLIENT_NAME = os.environ.get('EMBY_CLIENT_NAME', CFG.get('EMBY_CLIENT_NAME', 'EmbyAutoplay'))
 CLIENT_VERSION = os.environ.get('EMBY_CLIENT_VERSION', CFG.get('EMBY_CLIENT_VERSION', '1.0.0'))
@@ -59,127 +59,130 @@ def req(session, method, path, **kwargs):
 
 def main():
     session = requests.Session()
-    session.headers.update({
-        'Content-Type': 'application/json',
-        'X-Emby-Authorization': AUTH_HEADER,
-    })
-
-    auth = req(session, 'POST', '/Users/AuthenticateByName', json={
-        'Username': USERNAME,
-        'Pw': PASSWORD,
-    }).json()
-
-    user_id = auth['User']['Id']
-    access_token = auth['AccessToken']
-    session_id = auth.get('SessionInfo', {}).get('Id')
-    session.headers.update({'X-Emby-Token': access_token})
-
-    req(session, 'POST', '/Sessions/Capabilities/Full', json={
-        'PlayableMediaTypes': ['Video'],
-        'SupportsMediaControl': True,
-        'SupportsPersistentIdentifier': False,
-    })
-
-    recent_ids = recent_item_ids(8)
-    base_query = f'/Users/{user_id}/Items?Recursive=true&IncludeItemTypes=Movie,Episode&Limit=1&Fields=MediaSources,RunTimeTicks,SeriesName'
-    total_probe = req(session, 'GET', base_query).json()
-    total_count = int(total_probe.get('TotalRecordCount') or 0)
-    if total_count <= 0:
-        print('No items found in library', file=sys.stderr)
-        sys.exit(3)
-
-    item = None
-    max_attempts = 25
-    for _ in range(max_attempts):
-        start_index = random.randint(0, max(0, total_count - 1))
-        page = req(
-            session,
-            'GET',
-            f'/Users/{user_id}/Items?Recursive=true&IncludeItemTypes=Movie,Episode&Limit=20&StartIndex={start_index}&Fields=MediaSources,RunTimeTicks,SeriesName'
-        ).json().get('Items', [])
-        playable = [i for i in page if i.get('MediaSources') and str(i.get('Id')) not in recent_ids]
-        if not playable:
-            playable = [i for i in page if i.get('MediaSources')]
-        if playable:
-            item = random.choice(playable)
-            break
-
-    if not item:
-        print('No playable items found after random sampling', file=sys.stderr)
-        sys.exit(3)
-    media_source_id = item['MediaSources'][0]['Id']
-    item_id = item['Id']
-    runtime_ticks = int(item.get('RunTimeTicks') or 0)
-    target_ticks = min(PLAY_SECONDS * 10_000_000, runtime_ticks or PLAY_SECONDS * 10_000_000)
-
-    playback_info = req(
-        session,
-        'POST',
-        f'/Items/{item_id}/PlaybackInfo',
-        json={
-            'DeviceProfile': DEVICE_PROFILE,
-            'UserId': user_id,
-            'StartTimeTicks': 0,
-            'IsPlayback': True,
-            'AutoOpenLiveStream': True,
-            'MediaSourceId': media_source_id,
-            'EnableDirectPlay': True,
-            'EnableDirectStream': True,
-        },
-    ).json()
-
-    play_session_id = playback_info.get('PlaySessionId')
-    if not play_session_id:
-        print('PlaybackInfo did not return PlaySessionId', file=sys.stderr)
-        sys.exit(4)
-
-    print(f'Authenticated as {USERNAME}; session={session_id or "unknown"}')
-    print(f'Playing item: {item.get("Name")} (ItemId={item_id}, MediaSourceId={media_source_id})')
-    print(f'PlaySessionId: {play_session_id}')
-
-    common_payload = {
-        'CanSeek': True,
-        'ItemId': item_id,
-        'MediaSourceId': media_source_id,
-        'IsPaused': False,
-        'IsMuted': False,
-        'PlayMethod': 'DirectPlay',
-        'PlaySessionId': play_session_id,
-        'PlaylistIndex': 0,
-        'PlaylistLength': 1,
-        'RepeatMode': 'RepeatNone',
-        'VolumeLevel': 100,
-    }
-
-    req(session, 'POST', '/Sessions/Playing', json={
-        **common_payload,
-        'PositionTicks': 0,
-    })
-
-    step = 30
-    current = 0
-    while current < PLAY_SECONDS:
-        current = min(current + step, PLAY_SECONDS)
-        position_ticks = min(current * 10_000_000, target_ticks)
-        req(session, 'POST', '/Sessions/Playing/Progress', json={
-            **common_payload,
-            'PositionTicks': position_ticks,
-            'EventName': 'timeupdate',
+    try:
+        session.headers.update({
+            'Content-Type': 'application/json',
+            'X-Emby-Authorization': AUTH_HEADER,
         })
-        print(f'Progress reported: {current}s')
-        if current < PLAY_SECONDS:
-            time.sleep(step)
 
-    req(session, 'POST', '/Sessions/Playing/Stopped', json={
-        **common_payload,
-        'PositionTicks': target_ticks,
-        'Failed': False,
-    })
+        auth = req(session, 'POST', '/Users/AuthenticateByName', json={
+            'Username': USERNAME,
+            'Pw': PASSWORD,
+        }).json()
 
-    verify = req(session, 'GET', f'/Users/{user_id}/Items/{item_id}?Fields=UserData,RunTimeTicks').json()
-    add_history(item_id, item.get('Name') or '')
-    print('UserData:', verify.get('UserData'))
-    print('Stopped cleanly.')
+        user_id = auth['User']['Id']
+        access_token = auth['AccessToken']
+        session_id = auth.get('SessionInfo', {}).get('Id')
+        session.headers.update({'X-Emby-Token': access_token})
+
+        req(session, 'POST', '/Sessions/Capabilities/Full', json={
+            'PlayableMediaTypes': ['Video'],
+            'SupportsMediaControl': True,
+            'SupportsPersistentIdentifier': False,
+        })
+
+        recent_ids = recent_item_ids(8)
+        base_query = f'/Users/{user_id}/Items?Recursive=true&IncludeItemTypes=Movie,Episode&Limit=1&Fields=MediaSources,RunTimeTicks,SeriesName'
+        total_probe = req(session, 'GET', base_query).json()
+        total_count = int(total_probe.get('TotalRecordCount') or 0)
+        if total_count <= 0:
+            print('No items found in library', file=sys.stderr)
+            sys.exit(3)
+
+        item = None
+        max_attempts = 25
+        for _ in range(max_attempts):
+            start_index = random.randint(0, max(0, total_count - 20))
+            page = req(
+                session,
+                'GET',
+                f'/Users/{user_id}/Items?Recursive=true&IncludeItemTypes=Movie,Episode&Limit=20&StartIndex={start_index}&Fields=MediaSources,RunTimeTicks,SeriesName'
+            ).json().get('Items', [])
+            playable = [i for i in page if i.get('MediaSources') and str(i.get('Id')) not in recent_ids]
+            if not playable:
+                playable = [i for i in page if i.get('MediaSources')]
+            if playable:
+                item = random.choice(playable)
+                break
+
+        if not item:
+            print('No playable items found after random sampling', file=sys.stderr)
+            sys.exit(3)
+        media_source_id = item['MediaSources'][0]['Id']
+        item_id = item['Id']
+        runtime_ticks = int(item.get('RunTimeTicks') or 0)
+        target_ticks = min(PLAY_SECONDS * 10_000_000, runtime_ticks or PLAY_SECONDS * 10_000_000)
+
+        playback_info = req(
+            session,
+            'POST',
+            f'/Items/{item_id}/PlaybackInfo',
+            json={
+                'DeviceProfile': DEVICE_PROFILE,
+                'UserId': user_id,
+                'StartTimeTicks': 0,
+                'IsPlayback': True,
+                'AutoOpenLiveStream': True,
+                'MediaSourceId': media_source_id,
+                'EnableDirectPlay': True,
+                'EnableDirectStream': True,
+            },
+        ).json()
+
+        play_session_id = playback_info.get('PlaySessionId')
+        if not play_session_id:
+            print('PlaybackInfo did not return PlaySessionId', file=sys.stderr)
+            sys.exit(4)
+
+        print(f'Authenticated as {USERNAME}; session={session_id or "unknown"}')
+        print(f'Playing item: {item.get("Name")} (ItemId={item_id}, MediaSourceId={media_source_id})')
+        print(f'PlaySessionId: {play_session_id}')
+
+        common_payload = {
+            'CanSeek': True,
+            'ItemId': item_id,
+            'MediaSourceId': media_source_id,
+            'IsPaused': False,
+            'IsMuted': False,
+            'PlayMethod': 'DirectPlay',
+            'PlaySessionId': play_session_id,
+            'PlaylistIndex': 0,
+            'PlaylistLength': 1,
+            'RepeatMode': 'RepeatNone',
+            'VolumeLevel': 100,
+        }
+
+        req(session, 'POST', '/Sessions/Playing', json={
+            **common_payload,
+            'PositionTicks': 0,
+        })
+
+        step = 30
+        current = 0
+        while current < PLAY_SECONDS:
+            current = min(current + step, PLAY_SECONDS)
+            position_ticks = min(current * 10_000_000, target_ticks)
+            req(session, 'POST', '/Sessions/Playing/Progress', json={
+                **common_payload,
+                'PositionTicks': position_ticks,
+                'EventName': 'timeupdate',
+            })
+            print(f'Progress reported: {current}s')
+            if current < PLAY_SECONDS:
+                time.sleep(step)
+
+        req(session, 'POST', '/Sessions/Playing/Stopped', json={
+            **common_payload,
+            'PositionTicks': target_ticks,
+            'Failed': False,
+        })
+
+        verify = req(session, 'GET', f'/Users/{user_id}/Items/{item_id}?Fields=UserData,RunTimeTicks').json()
+        add_history(item_id, item.get('Name') or '')
+        print('UserData:', verify.get('UserData'))
+        print('Stopped cleanly.')
+    finally:
+        session.close()
 
 
 if __name__ == '__main__':

@@ -15,9 +15,12 @@ def now_iso():
 def load_history():
     if not os.path.exists(HISTORY_PATH):
         return []
-    with open(HISTORY_PATH, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    return data if isinstance(data, list) else []
+    try:
+        with open(HISTORY_PATH, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except json.JSONDecodeError:
+        return []
 
 
 def save_history(items):

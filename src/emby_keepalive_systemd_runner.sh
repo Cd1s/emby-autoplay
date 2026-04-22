@@ -25,9 +25,8 @@ PY
 
 {
   echo "===== $(date -u '+%Y-%m-%d %H:%M:%S UTC') SYSTEMD due run start ====="
-  "$RUNNER"
-  status=$?
+  "$RUNNER" && status=0 || status=$?
   echo "===== $(date -u '+%Y-%m-%d %H:%M:%S UTC') SYSTEMD due run end status=$status ====="
-  /usr/bin/python3 "$SCHEDULER"
+  python3 "$SCHEDULER"
   exit $status
 } >> "$LOG_FILE" 2>&1

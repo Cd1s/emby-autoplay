@@ -48,8 +48,12 @@ def next_schedule_from(base_time):
 def load_state():
     if not os.path.exists(STATE_PATH):
         return None
-    with open(STATE_PATH, 'r', encoding='utf-8') as f:
-        return json.load(f)
+    try:
+        with open(STATE_PATH, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        log_line(f'WARNING: state file corrupted, resetting: {STATE_PATH}')
+        return None
 
 
 def save_state(state):
@@ -157,7 +161,12 @@ def main():
             save_state(state)
             return 0
 
-    plan_next(state, current_time)
+    try:
+        plan_next(state, current_time)
+    except RuntimeError as e:
+        log_line(f'ERROR: failed to schedule next run: {e}')
+        print(f'ERROR: failed to schedule next run: {e}', file=sys.stderr)
+        return 1
     print(f'Scheduled: unit={state["next_unit_name"]} next_run_at={state["next_run_at"]} duration={state["next_duration_seconds"]}')
     return 0
 

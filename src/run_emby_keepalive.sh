@@ -21,8 +21,7 @@ export EMBY_URL EMBY_USERNAME EMBY_PASSWORD EMBY_PLAY_SECONDS EMBY_DEVICE_ID EMB
 
 {
   echo "===== $(date -u '+%Y-%m-%d %H:%M:%S UTC') START emby_keepalive ====="
-  /usr/bin/python3 "$BASE_DIR/emby_keepalive.py"
-  status=$?
+  python3 "$BASE_DIR/emby_keepalive.py" && status=0 || status=$?
   echo "===== $(date -u '+%Y-%m-%d %H:%M:%S UTC') END emby_keepalive status=$status ====="
   exit $status
 } >> "$LOG_FILE" 2>&1
