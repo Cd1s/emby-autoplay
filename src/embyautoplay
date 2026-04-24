@@ -14,6 +14,7 @@ STATE_PATH = BASE_DIR / 'emby_keepalive_state.json'
 PLAY_LOG = BASE_DIR / 'logs' / 'emby_keepalive.log'
 SCHED_LOG = BASE_DIR / 'logs' / 'emby_keepalive_scheduler.log'
 RUNNER = BASE_DIR / 'emby_keepalive_systemd_runner.sh'
+INNER_RUNNER = BASE_DIR / 'run_emby_keepalive.sh'
 SCHEDULER = BASE_DIR / 'emby_keepalive_systemd_scheduler.py'
 UNINSTALL = BASE_DIR / 'uninstall.sh'
 
@@ -173,7 +174,7 @@ def manual_test():
     print(f'\nRunning manual test with random duration: {seconds}s')
     env = os.environ.copy()
     env['EMBY_PLAY_SECONDS'] = str(seconds)
-    r = subprocess.run([str(RUNNER)], env=env)
+    r = subprocess.run([str(INNER_RUNNER)], env=env)
     if r.returncode != 0:
         print(f'错误：测试运行失败（退出码 {r.returncode}），请查看播放日志。')
 

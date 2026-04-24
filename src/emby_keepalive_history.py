@@ -19,7 +19,7 @@ def load_history():
         with open(HISTORY_PATH, 'r', encoding='utf-8') as f:
             data = json.load(f)
         return data if isinstance(data, list) else []
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, OSError):
         return []
 
 

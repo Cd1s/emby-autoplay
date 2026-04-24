@@ -54,6 +54,6 @@ PY
   fi
   echo "===== $(date -u '+%Y-%m-%d %H:%M:%S UTC') SYSTEMD due run end status=$status ====="
   set_run_status "$run_status"
-  python3 "$SCHEDULER"
+  python3 "$SCHEDULER" || echo "WARNING: scheduler exited non-zero (see scheduler log)"
   exit $status
 } >> "$LOG_FILE" 2>&1

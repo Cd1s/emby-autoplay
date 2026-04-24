@@ -52,8 +52,8 @@ def load_state():
     try:
         with open(STATE_PATH, 'r', encoding='utf-8') as f:
             return json.load(f)
-    except json.JSONDecodeError:
-        log_line(f'WARNING: state file corrupted, resetting: {STATE_PATH}')
+    except (json.JSONDecodeError, OSError) as e:
+        log_line(f'WARNING: state file unreadable, resetting: {STATE_PATH} ({e})')
         return None
 
 
@@ -138,7 +138,11 @@ def main():
         return 0
 
     if state.get('last_status') == 'running':
-        state['last_status'] = 'success'
+        log_line(
+            'WARNING: previous run left status=running (runner likely crashed); '
+            'marking last_status=unknown and clearing stale schedule pointers'
+        )
+        state['last_status'] = 'unknown'
         state['last_run_at'] = iso(current_time)
         state['last_duration_seconds'] = state.get('next_duration_seconds')
         state['next_run_at'] = None
