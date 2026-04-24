@@ -92,6 +92,76 @@ def hydrate_from_url(data):
         data['EMBY_PORT'] = '443' if p.scheme == 'https' else '80'
 
 
+def coerce_int(data, key, default, min_value=None, max_value=None):
+    try:
+        value = int(str(data.get(key, default)).strip())
+    except (TypeError, ValueError):
+        value = default
+    if min_value is not None:
+        value = max(min_value, value)
+    if max_value is not None:
+        value = min(max_value, value)
+    return value
+
+
+def coerce_float(data, key, default, min_value=None, max_value=None):
+    try:
+        value = float(str(data.get(key, default)).strip())
+    except (TypeError, ValueError):
+        value = default
+    if min_value is not None:
+        value = max(min_value, value)
+    if max_value is not None:
+        value = min(max_value, value)
+    return value
+
+
+def timing_settings(data=None):
+    data = data or parse_env()
+    min_days = coerce_int(data, 'EMBY_MIN_DAYS', 22, min_value=1)
+    max_days = coerce_int(data, 'EMBY_MAX_DAYS', 28, min_value=1)
+    if max_days < min_days:
+        min_days, max_days = max_days, min_days
+
+    min_seconds = coerce_int(data, 'EMBY_MIN_PLAY_SECONDS', 301, min_value=301, max_value=1199)
+    hard_max_seconds = coerce_int(data, 'EMBY_HARD_MAX_PLAY_SECONDS', 1199, min_value=301, max_value=1199)
+    if hard_max_seconds < min_seconds:
+        hard_max_seconds = min_seconds
+    soft_max_seconds = coerce_int(
+        data,
+        'EMBY_SOFT_MAX_PLAY_SECONDS',
+        600,
+        min_value=min_seconds,
+        max_value=hard_max_seconds,
+    )
+    prefer_soft_max_prob = coerce_float(
+        data,
+        'EMBY_PREFER_SOFT_MAX_PROB',
+        0.85,
+        min_value=0.0,
+        max_value=1.0,
+    )
+    timeout = coerce_int(data, 'EMBY_TIMEOUT', 30, min_value=1)
+    play_seconds_default = coerce_int(
+        data,
+        'EMBY_PLAY_SECONDS_DEFAULT',
+        300,
+        min_value=1,
+        max_value=1199,
+    )
+
+    return {
+        'min_days': min_days,
+        'max_days': max_days,
+        'min_seconds': min_seconds,
+        'soft_max_seconds': soft_max_seconds,
+        'hard_max_seconds': hard_max_seconds,
+        'prefer_soft_max_prob': prefer_soft_max_prob,
+        'timeout': timeout,
+        'play_seconds_default': play_seconds_default,
+    }
+
+
 def save_env(data, path=ENV_PATH):
     data = dict(data)
     data['EMBY_URL'] = build_url(data)

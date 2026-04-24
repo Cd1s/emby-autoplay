@@ -5,7 +5,7 @@ import random
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
-from emby_keepalive_config import parse_env
+from emby_keepalive_config import parse_env, timing_settings
 
 BASE_DIR = os.environ.get('EMBY_AUTOPLAY_HOME', '/opt/emby-autoplay')
 STATE_PATH = os.path.join(BASE_DIR, 'emby_keepalive_state.json')
@@ -13,13 +13,14 @@ RUNNER = os.path.join(BASE_DIR, 'emby_keepalive_systemd_runner.sh')
 LOG_FILE = os.path.join(BASE_DIR, 'logs', 'emby_keepalive_scheduler.log')
 UNIT_PREFIX = 'emby-keepalive'
 CFG = parse_env()
+TIMING = timing_settings(CFG)
 
-MIN_DAYS = int(CFG.get('EMBY_MIN_DAYS', '22'))
-MAX_DAYS = int(CFG.get('EMBY_MAX_DAYS', '28'))
-MIN_SECONDS = int(CFG.get('EMBY_MIN_PLAY_SECONDS', '301'))
-SOFT_MAX_SECONDS = int(CFG.get('EMBY_SOFT_MAX_PLAY_SECONDS', '600'))
-HARD_MAX_SECONDS = int(CFG.get('EMBY_HARD_MAX_PLAY_SECONDS', '1199'))
-PREFER_SOFT_MAX_PROB = float(CFG.get('EMBY_PREFER_SOFT_MAX_PROB', '0.85'))
+MIN_DAYS = TIMING['min_days']
+MAX_DAYS = TIMING['max_days']
+MIN_SECONDS = TIMING['min_seconds']
+SOFT_MAX_SECONDS = TIMING['soft_max_seconds']
+HARD_MAX_SECONDS = TIMING['hard_max_seconds']
+PREFER_SOFT_MAX_PROB = TIMING['prefer_soft_max_prob']
 
 
 def now_utc():
@@ -31,7 +32,7 @@ def iso(dt):
 
 
 def weighted_duration_seconds():
-    if random.random() < PREFER_SOFT_MAX_PROB:
+    if HARD_MAX_SECONDS <= SOFT_MAX_SECONDS or random.random() < PREFER_SOFT_MAX_PROB:
         return random.randint(MIN_SECONDS, SOFT_MAX_SECONDS)
     return random.randint(SOFT_MAX_SECONDS + 1, HARD_MAX_SECONDS)
 

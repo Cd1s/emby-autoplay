@@ -7,7 +7,7 @@ import random
 from pathlib import Path
 from getpass import getpass
 
-from emby_keepalive_config import parse_env, save_env, build_url
+from emby_keepalive_config import parse_env, save_env, build_url, timing_settings
 
 BASE_DIR = Path(os.environ.get('EMBY_AUTOPLAY_HOME', '/opt/emby-autoplay'))
 STATE_PATH = BASE_DIR / 'emby_keepalive_state.json'
@@ -42,12 +42,13 @@ def read_state():
 
 def show_status():
     cfg = parse_env()
+    timing = timing_settings(cfg)
     state = read_state()
     print('\n=== Emby Autoplay Status ===')
     print(f'URL:              {cfg.get("EMBY_URL") or build_url(cfg)}')
     print(f'Username:         {cfg.get("EMBY_USERNAME")}')
-    print(f'Day range:        {cfg.get("EMBY_MIN_DAYS")} ~ {cfg.get("EMBY_MAX_DAYS")} days')
-    print(f'Play seconds:     {cfg.get("EMBY_MIN_PLAY_SECONDS")} ~ {cfg.get("EMBY_HARD_MAX_PLAY_SECONDS")} sec (soft max {cfg.get("EMBY_SOFT_MAX_PLAY_SECONDS")})')
+    print(f'Day range:        {timing["min_days"]} ~ {timing["max_days"]} days')
+    print(f'Play seconds:     {timing["min_seconds"]} ~ {timing["hard_max_seconds"]} sec (soft max {timing["soft_max_seconds"]})')
     print(f'Next run:         {state.get("next_run_at")}')
     print(f'Next duration:    {state.get("next_duration_seconds")} sec')
     print(f'Next unit:        {state.get("next_unit_name")}')
@@ -156,11 +157,12 @@ def reconfigure():
 
 
 def random_duration(cfg):
-    min_s = int(cfg.get('EMBY_MIN_PLAY_SECONDS', '301'))
-    soft_max = int(cfg.get('EMBY_SOFT_MAX_PLAY_SECONDS', '600'))
-    hard_max = int(cfg.get('EMBY_HARD_MAX_PLAY_SECONDS', '1199'))
-    p = float(cfg.get('EMBY_PREFER_SOFT_MAX_PROB', '0.85'))
-    if random.random() < p:
+    timing = timing_settings(cfg)
+    min_s = timing['min_seconds']
+    soft_max = timing['soft_max_seconds']
+    hard_max = timing['hard_max_seconds']
+    p = timing['prefer_soft_max_prob']
+    if hard_max <= soft_max or random.random() < p:
         return random.randint(min_s, soft_max)
     return random.randint(soft_max + 1, hard_max)
 
