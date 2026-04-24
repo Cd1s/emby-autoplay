@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import shlex
 from urllib.parse import urlparse
 
 BASE_DIR = os.environ.get('EMBY_AUTOPLAY_HOME', '/opt/emby-autoplay')
@@ -47,12 +48,18 @@ def parse_env(path=ENV_PATH):
         with open(path, 'r', encoding='utf-8') as f:
             for line in f:
                 line = line.strip()
-                if not line or line.startswith('#') or '=' not in line:
+                if not line or line.startswith('#'):
                     continue
-                k, v = line.split('=', 1)
-                v = v.strip()
-                if len(v) >= 2 and ((v[0] == v[-1] == "'") or (v[0] == v[-1] == '"')):
-                    v = v[1:-1]
+                try:
+                    parts = shlex.split(line, comments=True, posix=True)
+                except ValueError:
+                    continue
+                if not parts:
+                    continue
+                assignment = parts[1] if parts[0] == 'export' and len(parts) > 1 else parts[0]
+                if '=' not in assignment:
+                    continue
+                k, v = assignment.split('=', 1)
                 data[k.strip()] = v
     if not data.get('EMBY_URL') and data.get('EMBY_HOST'):
         data['EMBY_URL'] = build_url(data)
