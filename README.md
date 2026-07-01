@@ -7,7 +7,7 @@ Emby 自动播放工具。
 - 当天随机时刻
 - 随机曲目
 - 随机播放时长（大于 5 分钟，小于 20 分钟，偏向 10 分钟以内）
-- 使用 systemd 动态预约
+- 使用持久 systemd timer 预约，下次运行在重启或断电后不丢
 - 安装后提供 `embyautoplay` 管理命令
 
 ---
@@ -78,6 +78,15 @@ embyautoplay
 /opt/emby-autoplay/logs/emby_keepalive.log
 /opt/emby-autoplay/logs/emby_keepalive_scheduler.log
 ```
+
+持久 systemd 预约：
+
+```text
+/etc/systemd/system/emby-keepalive-*.timer
+/etc/systemd/system/emby-keepalive-*.service
+```
+
+每次只保留一个下次运行预约；预约写入持久 unit 文件，机器重启或断电后仍会保留并按时触发。
 
 状态文件：
 

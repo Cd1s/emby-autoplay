@@ -11,6 +11,7 @@ BASE_DIR = os.environ.get('EMBY_AUTOPLAY_HOME', '/opt/emby-autoplay')
 STATE_PATH = os.path.join(BASE_DIR, 'emby_keepalive_state.json')
 RUNNER = os.path.join(BASE_DIR, 'emby_keepalive_systemd_runner.sh')
 LOG_FILE = os.path.join(BASE_DIR, 'logs', 'emby_keepalive_scheduler.log')
+SYSTEMD_UNIT_DIR = os.environ.get('EMBY_SYSTEMD_UNIT_DIR', '/etc/systemd/system')
 UNIT_PREFIX = 'emby-keepalive'
 CFG = parse_env()
 TIMING = timing_settings(CFG)
@@ -75,29 +76,74 @@ def sanitize_unit_suffix(ts):
     return ts.strftime('%Y%m%dT%H%M%SZ')
 
 
+def systemd_escape_value(value):
+    return str(value).replace('\\', '\\\\').replace('"', '\\"')
+
+
+def write_atomic(path, content):
+    tmp = f'{path}.tmp'
+    with open(tmp, 'w', encoding='utf-8') as f:
+        f.write(content)
+    os.replace(tmp, path)
+
+
+def run_systemctl(*args):
+    result = subprocess.run(['systemctl', *args], capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f'systemctl {" ".join(args)} failed: {result.stderr.strip() or result.stdout.strip()}')
+    return result.stdout.strip()
+
+
 def schedule_systemd_run(run_at, duration_seconds):
     unit_name = f'{UNIT_PREFIX}-{sanitize_unit_suffix(run_at)}'
-    result = subprocess.run([
-        'systemd-run',
-        '--unit', unit_name,
-        '--description', f'Random Emby keepalive at {iso(run_at)}',
-        '--on-calendar', run_at.strftime('%Y-%m-%d %H:%M:%S UTC'),
-        '--property=Type=oneshot',
-        '--setenv', f'EMBY_PLAY_SECONDS={duration_seconds}',
-        RUNNER,
-    ], capture_output=True, text=True)
-    if result.returncode != 0:
-        raise RuntimeError(f'systemd-run failed: {result.stderr.strip() or result.stdout.strip()}')
-    return unit_name, result.stdout.strip()
+    service_path = os.path.join(SYSTEMD_UNIT_DIR, f'{unit_name}.service')
+    timer_path = os.path.join(SYSTEMD_UNIT_DIR, f'{unit_name}.timer')
+    run_at_text = run_at.strftime('%Y-%m-%d %H:%M:%S UTC')
+    description = f'Random Emby keepalive at {iso(run_at)}'
+    service_content = f'''[Unit]\nDescription={description}\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=oneshot\nEnvironment=EMBY_AUTOPLAY_HOME={systemd_escape_value(BASE_DIR)}\nEnvironment=EMBY_PLAY_SECONDS={int(duration_seconds)}\nExecStart={systemd_escape_value(RUNNER)}\n'''
+    timer_content = f'''[Unit]\nDescription={description}\n\n[Timer]\nOnCalendar={run_at_text}\nPersistent=true\nUnit={unit_name}.service\n\n[Install]\nWantedBy=timers.target\n'''
+    write_atomic(service_path, service_content)
+    write_atomic(timer_path, timer_content)
+    run_systemctl('daemon-reload')
+    enable_out = run_systemctl('enable', '--now', f'{unit_name}.timer')
+    return unit_name, f'wrote {service_path} {timer_path}; {enable_out}'
+
+
+def cleanup_unit(unit_name):
+    if not unit_name:
+        return
+    subprocess.run(['systemctl', 'disable', '--now', f'{unit_name}.timer'], capture_output=True, text=True)
+    subprocess.run(['systemctl', 'stop', f'{unit_name}.service'], capture_output=True, text=True)
+    subprocess.run(['systemctl', 'reset-failed', f'{unit_name}.timer', f'{unit_name}.service'], capture_output=True, text=True)
+    for suffix in ('timer', 'service'):
+        try:
+            os.remove(os.path.join(SYSTEMD_UNIT_DIR, f'{unit_name}.{suffix}'))
+        except FileNotFoundError:
+            pass
+    subprocess.run(['systemctl', 'daemon-reload'], capture_output=True, text=True)
 
 
 def unit_timer_exists(unit_name):
     result = subprocess.run(
-        ['systemctl', 'status', f'{unit_name}.timer', '--no-pager'],
+        ['systemctl', 'show', f'{unit_name}.timer', '--property=LoadState,FragmentPath', '--value'],
         capture_output=True,
         text=True,
     )
-    return result.returncode == 0
+    if result.returncode != 0:
+        return False
+    values = result.stdout.splitlines()
+    load_state = values[0].strip() if values else ''
+    fragment_path = values[1].strip() if len(values) > 1 else ''
+    if load_state != 'loaded':
+        return False
+    expected_path = os.path.join(SYSTEMD_UNIT_DIR, f'{unit_name}.timer')
+    if os.path.abspath(fragment_path) != os.path.abspath(expected_path):
+        log_line(
+            f'Existing timer for unit={unit_name} is not persistent at expected path '
+            f'{expected_path} (fragment={fragment_path or "none"}); recreating it'
+        )
+        return False
+    return True
 
 
 def ensure_state(state, current_time):
@@ -156,6 +202,7 @@ def main():
                 f'Missing timer detected for recorded unit={missing_unit}; '
                 'clearing stale schedule state and recreating it'
             )
+            cleanup_unit(missing_unit)
             state['next_run_at'] = None
             state['next_duration_seconds'] = None
             state['next_unit_name'] = None

@@ -15,8 +15,11 @@ if os.path.exists(path):
 PY
 )
   if [[ -n "$unit_name" ]]; then
-    systemctl stop "$unit_name.timer" "$unit_name.service" 2>/dev/null || true
+    systemctl disable --now "$unit_name.timer" 2>/dev/null || true
+    systemctl stop "$unit_name.service" 2>/dev/null || true
     systemctl reset-failed "$unit_name.timer" "$unit_name.service" 2>/dev/null || true
+    rm -f "/etc/systemd/system/$unit_name.timer" "/etc/systemd/system/$unit_name.service"
+    systemctl daemon-reload 2>/dev/null || true
   fi
 fi
 
