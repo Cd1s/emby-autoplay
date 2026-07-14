@@ -4,7 +4,7 @@ import sys
 import time
 import random
 import requests
-from emby_keepalive_config import coerce_int, parse_env, timing_settings
+from emby_keepalive_config import coerce_float, coerce_int, parse_env, timing_settings
 from emby_keepalive_history import add_history, recent_item_ids
 
 BASE_DIR = os.environ.get('EMBY_AUTOPLAY_HOME', '/opt/emby-autoplay')
@@ -30,6 +30,21 @@ REQUEST_TIMEOUT = coerce_int(
     TIMING['timeout'],
     min_value=1,
 )
+RETRY_ATTEMPTS = coerce_int(
+    {'value': os.environ.get('EMBY_RETRY_ATTEMPTS', CFG.get('EMBY_RETRY_ATTEMPTS'))},
+    'value',
+    3,
+    min_value=1,
+    max_value=5,
+)
+RETRY_BACKOFF_SECONDS = coerce_float(
+    {'value': os.environ.get('EMBY_RETRY_BACKOFF_SECONDS', CFG.get('EMBY_RETRY_BACKOFF_SECONDS'))},
+    'value',
+    1.0,
+    min_value=0.0,
+    max_value=30.0,
+)
+TRANSIENT_STATUS_CODES = {408, 429, 500, 502, 503, 504}
 
 if not BASE_URL or not USERNAME or not PASSWORD:
     print('Missing EMBY_URL / EMBY_USERNAME / EMBY_PASSWORD', file=sys.stderr)
@@ -60,17 +75,59 @@ DEVICE_PROFILE = {
 }
 
 
+def is_retryable_error(exc):
+    if isinstance(exc, (requests.ConnectionError, requests.Timeout)):
+        return True
+    if isinstance(exc, requests.HTTPError):
+        response = getattr(exc, 'response', None)
+        return response is not None and response.status_code in TRANSIENT_STATUS_CODES
+    return False
+
+
 def req(session, method, path, **kwargs):
     url = BASE_URL + path
     kwargs.setdefault('timeout', REQUEST_TIMEOUT)
     kwargs.setdefault('verify', VERIFY_SSL)
-    r = session.request(method, url, **kwargs)
-    r.raise_for_status()
-    return r
+    for attempt in range(1, RETRY_ATTEMPTS + 1):
+        try:
+            r = session.request(method, url, **kwargs)
+            r.raise_for_status()
+            return r
+        except requests.RequestException as exc:
+            if attempt >= RETRY_ATTEMPTS or not is_retryable_error(exc):
+                raise
+            sleep_for = RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))
+            print(
+                f'WARNING: transient request failure for {method} {path}; retry {attempt}/{RETRY_ATTEMPTS}: {exc}',
+                file=sys.stderr,
+            )
+            if sleep_for > 0:
+                time.sleep(sleep_for)
+    raise RuntimeError(f'request retry loop exited unexpectedly for {method} {path}')
+
+
+def stop_playback(session, payload, position_ticks, failed=False, best_effort=False):
+    stopped_payload = {
+        **payload,
+        'PositionTicks': position_ticks,
+        'Failed': failed,
+    }
+    if best_effort:
+        try:
+            req(session, 'POST', '/Sessions/Playing/Stopped', json=stopped_payload)
+        except Exception as exc:  # Do not mask the original playback error.
+            print(f'WARNING: failed to send playback stop event: {exc}', file=sys.stderr)
+        return
+    req(session, 'POST', '/Sessions/Playing/Stopped', json=stopped_payload)
 
 
 def main():
     session = requests.Session()
+    playback_started = False
+    playback_stopped = False
+    common_payload = None
+    position_ticks = 0
+    target_ticks = 0
     try:
         session.headers.update({
             'Content-Type': 'application/json',
@@ -166,6 +223,7 @@ def main():
             'VolumeLevel': 100,
         }
 
+        playback_started = True
         req(session, 'POST', '/Sessions/Playing', json={
             **common_payload,
             'PositionTicks': 0,
@@ -185,16 +243,17 @@ def main():
             if current < PLAY_SECONDS:
                 time.sleep(step)
 
-        req(session, 'POST', '/Sessions/Playing/Stopped', json={
-            **common_payload,
-            'PositionTicks': target_ticks,
-            'Failed': False,
-        })
+        stop_playback(session, common_payload, target_ticks, failed=False)
+        playback_stopped = True
 
         add_history(item_id, item.get('Name') or '')
         verify = req(session, 'GET', f'/Users/{user_id}/Items/{item_id}?Fields=UserData,RunTimeTicks').json()
         print('UserData:', verify.get('UserData'))
         print('Stopped cleanly.')
+    except Exception:
+        if playback_started and common_payload and not playback_stopped:
+            stop_playback(session, common_payload, position_ticks or target_ticks, failed=True, best_effort=True)
+        raise
     finally:
         session.close()
 
